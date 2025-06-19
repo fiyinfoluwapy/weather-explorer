@@ -1,19 +1,19 @@
-// components/Sidebar.tsx
 'use client'
 
 import React, { useEffect, useState } from 'react'
 import { SearchIcon } from 'lucide-react'
+import { getCityCoordinates } from '@/app/utils/get-city-coordinates'
 
 type City = {
-  id: number | string
+  id: string | number
   name: string
   country: string
   lat: number
-  lon: number
+  lng: number
 }
 
 type SidebarProps = {
-  cities: City[]
+  cities: City[] // fallback static cities
   onCitySelect: (city: City) => void
   selectedCity: City | null
   isOpen: boolean
@@ -30,16 +30,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
   darkMode,
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
-  const [filteredCities, setFilteredCities] = useState<City[]>(cities)
+  const [searchResults, setSearchResults] = useState<City[]>([])
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    const filtered = searchTerm
-      ? cities.filter((city) =>
-          city.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      : cities
-    setFilteredCities(filtered)
-  }, [searchTerm, cities])
+    if (!searchTerm.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    const fetchCity = async () => {
+      setLoading(true)
+      try {
+        const { lat, lng, country } = await getCityCoordinates(searchTerm)
+        setSearchResults([
+          {
+            id: Date.now(),
+            name: searchTerm,
+            country,
+            lat,
+            lng,
+          },
+        ])
+      } catch (error) {
+        setSearchResults([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    const delayDebounce = setTimeout(fetchCity, 600)
+    return () => clearTimeout(delayDebounce)
+  }, [searchTerm])
 
   if (!isOpen) return null
 
@@ -50,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         flex flex-col shadow-lg transition-all duration-300`}
     >
       <div className="p-4 border-b dark:border-gray-700 sticky top-0 bg-inherit z-10">
-        <h2 className="text-xl font-semibold mb-4">Weather App</h2>
+        <h2 className="text-xl font-semibold mb-4">Weather Explorer</h2>
         <div className="relative">
           <input
             type="text"
@@ -62,18 +84,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               focus:outline-none focus:ring-2 focus:ring-blue-500`}
             aria-label="Search cities"
           />
-          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+          {/* <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" /> */}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto">
         <ul className="py-2">
-          {filteredCities.length === 0 ? (
+          {loading ? (
+            <li className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+              Searching...
+            </li>
+          ) : searchResults.length === 0 ? (
             <li className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
               No matching cities.
             </li>
           ) : (
-            filteredCities.map((city) => (
+            searchResults.map((city) => (
               <li
                 key={city.id}
                 className={`px-4 py-3 cursor-pointer transition-colors duration-200
@@ -90,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <div className="font-medium">{city.name}</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {city.country}
+                  {city.country || 'Unknown Country'}
                 </div>
               </li>
             ))
@@ -100,3 +126,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
   )
 }
+
+

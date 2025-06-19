@@ -1,3 +1,4 @@
+// src/app/components/map.tsx
 'use client'
 
 import React, { useEffect, useState } from 'react'
@@ -11,8 +12,8 @@ import {
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
-// Icon config (CDN-based markers)
-delete L.Icon.Default.prototype._getIconUrl
+// Fix Leaflet default icon issue in React
+delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
     'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
@@ -20,38 +21,46 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
 })
 
-// Utility to re-center map on selection
+// Smooth fly-to map view on selection
 const ChangeMapView = ({ center }: { center: [number, number] | null }) => {
   const map = useMap()
   useEffect(() => {
     if (center) {
-      map.flyTo(center, 4)
+      map.flyTo(center, 5, { duration: 1.2 })
     }
   }, [center, map])
   return null
 }
 
-// Main map props
+// Types
 type City = {
-  id: number
+  id: number | string
   name: string
   country: string
   lat: number
   lng: number
 }
 
+type WeatherData = {
+  temp: number
+  description: string
+}
+
 type MapProps = {
-  cities?: City[] // Optional with fallback
+  cities?: City[]
   selectedCity: City | null
   setSelectedCity: (city: City) => void
   darkMode: boolean
+  weatherData?: WeatherData | null
 }
 
-export const Map = ({
-  cities = [], // ⛑ Prevents undefined.map error
+// Main Map Component
+const Map = ({
+  cities = [],
   selectedCity,
   setSelectedCity,
   darkMode,
+  weatherData,
 }: MapProps) => {
   const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
 
@@ -77,7 +86,9 @@ export const Map = ({
         url={mapStyle}
       />
 
-      <ChangeMapView center={selectedCity ? [selectedCity.lat, selectedCity.lng] : null} />
+      <ChangeMapView
+        center={selectedCity ? [selectedCity.lat, selectedCity.lng] : null}
+      />
 
       {cities.map((city) => (
         <Marker
@@ -92,7 +103,11 @@ export const Map = ({
               <div>
                 <h2 className="font-semibold">{city.name}</h2>
                 <p>{city.country}</p>
-                <p>🌤 28°C | Clear Sky</p>
+                {weatherData ? (
+                  <p>🌤 {weatherData.temp}°C | {weatherData.description}</p>
+                ) : (
+                  <p>Loading weather...</p>
+                )}
               </div>
             </Popup>
           )}
@@ -101,3 +116,5 @@ export const Map = ({
     </MapContainer>
   )
 }
+
+export default Map

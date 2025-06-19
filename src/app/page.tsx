@@ -1,45 +1,61 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Sidebar } from '@/app/components/sidebar'
-import { Map } from '@/app/components/map'
-import { cities } from '@/app/utils/cities'
 import { getWeatherData } from '@/app/utils/weather-data'
 
+const Map = dynamic(() => import('@/app/components/map'), {
+  ssr: false,
+  loading: () => <p>Loading map...</p>,
+})
+
+type City = {
+  id: number | string
+  name: string
+  country: string
+  lat: number
+  lng: number
+}
+
 export default function HomePage() {
-  const [selectedCity, setSelectedCity] = useState(null)
-  const [isSidebarOpen, setSidebarOpen] = useState(true)
-  const [weatherData, setWeatherData] = useState(null)
-  const [showPopup, setShowPopup] = useState(false)
+  const [selectedCity, setSelectedCity] = useState<City | null>(null)
+  const [weatherData, setWeatherData] = useState<{
+    temp: number
+    description: string
+  } | null>(null)
   const [darkMode, setDarkMode] = useState(false)
 
-  const handleCitySelect = async (city) => {
+  const handleCitySelect = async (city: City) => {
     setSelectedCity(city)
     try {
-      const data = await getWeatherData(city.lat, city.lng)
-      setWeatherData(data)
-      setShowPopup(true)
+      const data = await getWeatherData(city.name)
+      setWeatherData({
+        temp: data.today.main.temp,
+        description: data.today.weather[0].description,
+      })
     } catch (error) {
-      console.error('Failed to fetch weather data:', error)
+      console.error('❌ Failed to fetch weather data:', error)
+      setWeatherData(null)
     }
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className={`flex h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-white'}`}>
       <Sidebar
-        cities={cities}
+        cities={[]} // dynamic cities only now
         selectedCity={selectedCity}
         onCitySelect={handleCitySelect}
-        isOpen={isSidebarOpen}
+        isOpen={true}
         isMobile={false}
         darkMode={darkMode}
       />
 
       <main className="flex-1 relative">
         <Map
+          cities={selectedCity ? [selectedCity] : []}
           selectedCity={selectedCity}
-          showPopup={showPopup}
-          setShowPopup={setShowPopup}
+          setSelectedCity={handleCitySelect}
           weatherData={weatherData}
           darkMode={darkMode}
         />
